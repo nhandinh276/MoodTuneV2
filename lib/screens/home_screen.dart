@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("MoodTune AI"),
+        title: const Text("MoodTune"),
         actions: [
           IconButton(
             icon: const Icon(Icons.tune),

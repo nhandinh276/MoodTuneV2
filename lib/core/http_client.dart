@@ -28,10 +28,24 @@ class HttpClient {
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception(
-        "POST ${uri.toString()} failed: ${res.statusCode} - $raw",
+        "POST ${uri.toString()} failed: ${res.statusCode} - ${res.body}",
       );
     }
 
     return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  // ✅ NEW: Audius có endpoint trả List/Map => dùng dynamic
+  Future<dynamic> getAnyJson(Uri uri, {Map<String, String>? headers}) async {
+    final res = await http.get(uri, headers: headers);
+    final body = res.body;
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception(
+        "GET ${uri.toString()} failed: ${res.statusCode} - $body",
+      );
+    }
+
+    return jsonDecode(body);
   }
 }

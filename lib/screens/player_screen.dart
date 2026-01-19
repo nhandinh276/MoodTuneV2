@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:moodtune_ai/core/nav_guard.dart';
 import 'package:provider/provider.dart';
 
 import '../models/track.dart';
@@ -21,16 +20,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final player = AudioPlayer();
 
   bool ready = false;
-  bool searchingAlt = false;
   String? localError;
-
-  bool _usingAltPreview = false;
-  Track? _effectiveTrack;
 
   @override
   void initState() {
     super.initState();
-    _effectiveTrack = widget.track;
     _initWithTrack(widget.track);
   }
 
@@ -39,51 +33,27 @@ class _PlayerScreenState extends State<PlayerScreen> {
       setState(() {
         ready = false;
         localError = null;
-        _usingAltPreview = false;
-        _effectiveTrack = track;
       });
 
       await player.stop();
 
-      // ✅ 1) Nếu có Spotify preview -> phát luôn
-      if (track.previewUrl.trim().isNotEmpty) {
-        await player.setUrl(track.previewUrl);
-        setState(() => ready = true);
-        return;
-      }
-
-      // ✅ 2) Không có preview từ Spotify -> thử Deezer
-      final app = context.read<AppState>();
-      final altPreview = await app.preview.findDeezerPreviewUrl(
-        trackName: track.name,
-        artistName: track.artist,
-      );
-
-      if (!mounted) return;
-
-      if (altPreview != null && altPreview.trim().isNotEmpty) {
-        final patched = track.copyWith(previewUrl: altPreview);
-        _effectiveTrack = patched;
-        _usingAltPreview = true;
-
-        await player.setUrl(altPreview);
+      if (track.streamUrl.trim().isEmpty) {
         setState(() {
-          localError = null;
+          localError =
+              "Không có stream URL để phát bài này (Audius không trả về stream).";
           ready = true;
         });
         return;
       }
 
-      // ✅ 3) Không tìm thấy preview ở đâu cả
+      await player.setUrl(track.streamUrl);
       setState(() {
-        localError =
-            "Bài này không có preview 30s trên Spotify và cũng không tìm thấy preview thay thế.\n"
-            "Bạn có thể bấm “Tìm preview” hoặc “Mở Spotify”.";
+        localError = null;
         ready = true;
       });
     } catch (e) {
       setState(() {
-        localError = "Lỗi phát preview: $e";
+        localError = "Lỗi phát nhạc: $e";
         ready = true;
       });
     }
@@ -104,8 +74,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final activity =
         app.lastAnalysis?.activity ?? "Nghe 1 bài và hít thở sâu 3 lần.";
 
-    final t = _effectiveTrack ?? widget.track;
-    final hasPreview = t.previewUrl.trim().isNotEmpty;
+    final t = widget.track;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Player")),
@@ -141,14 +110,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           children: [
                             MoodBadge(ok: true, text: "Mood: $moodName"),
                             const SizedBox(width: 8),
-                            MoodBadge(
-                              ok: hasPreview,
-                              text: hasPreview
-                                  ? (_usingAltPreview
-                                        ? "Preview 30s (Alt)"
-                                        : "Preview 30s")
-                                  : "Không preview",
-                            ),
+                            MoodBadge(ok: true, text: "Nguồn: ${t.source}"),
                           ],
                         ),
                       ],
@@ -180,10 +142,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Nghe nhạc",
+                    "Nghe nhạc (Full)",
                     style: UIStyles.h2(context).copyWith(fontSize: 16),
                   ),
                   const SizedBox(height: 10),
+
                   if (!ready)
                     const Center(
                       child: Padding(
@@ -210,10 +173,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           children: [
                             Expanded(
                               child: FilledButton.icon(
-                                onPressed:
-                                    (!hasPreview ||
-                                        localError != null ||
-                                        isLoading)
+                                onPressed: (localError != null || isLoading)
                                     ? null
                                     : () async {
                                         if (playing) {
@@ -239,84 +199,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 label: Text(
                                   isLoading
                                       ? "Đang tải…"
-                                      : (playing ? "Pause" : "Play 30s"),
+                                      : (playing ? "Pause" : "Play"),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: searchingAlt
-                                    ? null
-                                    : () async {
-                                        setState(() => searchingAlt = true);
-                                        try {
-                                          // ✅ Thử tìm Spotify preview trước
-                                          final alt = await app.spotify
-                                              .findPlayableAlternative(t);
-                                          if (!mounted) return;
-
-                                          if (alt != null) {
-                                            await NavGuard.pushReplacement(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    PlayerScreen(track: alt),
-                                              ),
-                                            );
-                                            return;
-                                          }
-
-                                          // ✅ Nếu Spotify không có -> thử Deezer
-                                          final altPreview = await app.preview
-                                              .findDeezerPreviewUrl(
-                                                trackName: t.name,
-                                                artistName: t.artist,
-                                              );
-
-                                          if (!mounted) return;
-
-                                          if (altPreview != null &&
-                                              altPreview.trim().isNotEmpty) {
-                                            final patched = t.copyWith(
-                                              previewUrl: altPreview,
-                                            );
-
-                                            await NavGuard.pushReplacement(
-                                              MaterialPageRoute(
-                                                builder: (_) => PlayerScreen(
-                                                  track: patched,
-                                                ),
-                                              ),
-                                            );
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  "Không tìm thấy bản có preview 😥",
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        } finally {
-                                          if (mounted) {
-                                            setState(
-                                              () => searchingAlt = false,
-                                            );
-                                          }
-                                        }
-                                      },
-                                icon: searchingAlt
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.search),
-                                label: const Text("Tìm preview"),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -324,7 +208,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               onPressed: () =>
                                   _openLinkDialog(context, t.externalUrl),
                               icon: const Icon(Icons.open_in_new),
-                              label: const Text("Spotify"),
+                              label: const Text("Mở link"),
                             ),
                           ],
                         );
@@ -459,7 +343,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Link Spotify"),
+        title: const Text("Link ngoài"),
         content: SelectableText(url.isEmpty ? "Không có link" : url),
         actions: [
           TextButton(

@@ -9,22 +9,19 @@ import '../models/mood_entry.dart';
 import '../models/track.dart';
 import '../services/community_service.dart';
 import '../services/openai_service.dart';
-import '../services/spotify_auth_service.dart';
-import '../services/spotify_service.dart';
 import '../services/storage_service.dart';
 import '../core/http_client.dart';
-import '../services/preview_service.dart';
+
+// ✅ NEW
+import '../services/audius_service.dart';
 
 class AppState extends ChangeNotifier {
   final storage = StorageService();
-
-  late final spotifyAuth = SpotifyAuthService(storage);
-  late final spotify = SpotifyService(auth: spotifyAuth, http: HttpClient());
   final openai = OpenAIService();
   final community = CommunityService();
 
-  // ✅ NEW: fallback preview service (Deezer)
-  final preview = PreviewService(http: HttpClient());
+  // ✅ NEW: Audius music provider
+  late final audius = AudiusService(http: HttpClient());
 
   bool isBootstrapped = false;
 
@@ -57,10 +54,14 @@ class AppState extends ChangeNotifier {
 
     history = await storage.loadHistory();
 
+    // load cached recommendations for offline
     final cached = await storage.loadCachedRecommendations();
     if (cached.isNotEmpty) {
       recommendations = cached;
     }
+
+    // ✅ bootstrap Audius host
+    await audius.bootstrap();
 
     isBootstrapped = true;
     notifyListeners();
@@ -90,6 +91,7 @@ class AppState extends ChangeNotifier {
     currentAccentColor = m.color;
   }
 
+  // 1 track for today
   Track? getTodayPick() {
     if (recommendations.isEmpty) return null;
     final today = formatDateKey(DateTime.now());
@@ -141,9 +143,11 @@ class AppState extends ChangeNotifier {
 
       await _loadRecommendationsByMood(analysis.mood);
 
+      // nếu AI có tags -> search thêm trên Audius
       if (analysis.tags.isNotEmpty && recommendations.length < 10) {
         final q = analysis.tags.take(3).join(" ");
-        final extra = await spotify.searchTracks(q);
+        final extra = await audius.searchTracks(q, limit: 20);
+
         final merged = [...recommendations];
         for (final t in extra) {
           if (!merged.any((x) => x.id == t.id)) merged.add(t);
@@ -163,7 +167,11 @@ class AppState extends ChangeNotifier {
     _setLoading(true);
     error = null;
     try {
-      final tracks = await spotify.recommendByMood(mood, timeBoost: true);
+      final tracks = await audius.recommendByMood(
+        mood,
+        limit: AppConstants.maxTracks,
+      );
+
       recommendations = tracks;
       await storage.cacheRecommendations(tracks);
     } catch (e) {

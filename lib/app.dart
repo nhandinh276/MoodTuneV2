@@ -21,7 +21,7 @@ class MoodTuneApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "MoodTune AI",
+      title: "MoodTune",
       theme: themeData,
 
       // ✅ KEY quan trọng để NavGuard điều hướng an toàn

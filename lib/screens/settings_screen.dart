@@ -174,19 +174,15 @@ class SettingsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Lưu ý API",
+                        "Lời nhắn nhủ",
                         style: UIStyles.body(
                           context,
                         ).copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        "Tạo file: assets/.env (khuyến nghị)\n"
-                        "và điền:\n"
-                        "• SPOTIFY_CLIENT_ID\n"
-                        "• SPOTIFY_CLIENT_SECRET\n"
-                        "• OPENAI_API_KEY\n\n"
-                        "Gợi ý: Bạn có thể dùng .env ở root, app sẽ tự fallback.",
+                        "Thay đổi màu theo ý bạn"
+                        "Thay đổi giao diện cũng sẽ thay đổi tâm trạng của bạn =)",
                         style: UIStyles.subtle(context),
                       ),
                     ],
@@ -199,7 +195,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 14),
 
           Text(
-            "MoodTune AI • Glass Gradient UI",
+            "MoodTune • Glass Gradient UI",
             style: UIStyles.subtle(context),
             textAlign: TextAlign.center,
           ),

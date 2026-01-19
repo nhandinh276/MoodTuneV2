@@ -6,8 +6,15 @@ class Track {
   final String artist;
   final String album;
   final String imageUrl;
-  final String previewUrl;
+
+  // ✅ Full stream url (Audius)
+  final String streamUrl;
+
+  // Link mở ngoài (Audius page)
   final String externalUrl;
+
+  // nguồn: "audius"
+  final String source;
 
   const Track({
     required this.id,
@@ -15,11 +22,12 @@ class Track {
     required this.artist,
     required this.album,
     required this.imageUrl,
-    required this.previewUrl,
+    required this.streamUrl,
     required this.externalUrl,
+    required this.source,
   });
 
-  bool get hasPreview => previewUrl.trim().isNotEmpty;
+  bool get canPlay => streamUrl.trim().isNotEmpty;
 
   Track copyWith({
     String? id,
@@ -27,8 +35,9 @@ class Track {
     String? artist,
     String? album,
     String? imageUrl,
-    String? previewUrl,
+    String? streamUrl,
     String? externalUrl,
+    String? source,
   }) {
     return Track(
       id: id ?? this.id,
@@ -36,35 +45,47 @@ class Track {
       artist: artist ?? this.artist,
       album: album ?? this.album,
       imageUrl: imageUrl ?? this.imageUrl,
-      previewUrl: previewUrl ?? this.previewUrl,
+      streamUrl: streamUrl ?? this.streamUrl,
       externalUrl: externalUrl ?? this.externalUrl,
+      source: source ?? this.source,
     );
   }
 
-  factory Track.fromSpotify(Map<String, dynamic> json) {
-    final id = safeString(json['id']);
-    final name = safeString(json['name']);
-    final artists = (json['artists'] as List?) ?? [];
-    final artist = artists.isNotEmpty
-        ? safeString((artists.first as Map)['name'])
-        : "Unknown";
-    final albumObj = (json['album'] as Map?)?.cast<String, dynamic>() ?? {};
-    final album = safeString(albumObj['name']);
-    final images = (albumObj['images'] as List?) ?? [];
-    final imageUrl = images.isNotEmpty
-        ? safeString((images.first as Map)['url'])
+  // ✅ Parse từ Audius track object
+  factory Track.fromAudius(
+    Map<String, dynamic> json, {
+    required String host,
+    required String appName,
+  }) {
+    final id = safeString(json["id"]);
+    final title = safeString(json["title"]);
+    final artist = safeString(json["user"]?["name"]);
+    final album = safeString(json["playlist_name"]); // thường rỗng
+    final artwork = (json["artwork"] as Map?)?.cast<String, dynamic>() ?? {};
+    final imageUrl = safeString(artwork["480x480"]).isNotEmpty
+        ? safeString(artwork["480x480"])
+        : safeString(artwork["150x150"]);
+
+    // stream endpoint (full)
+    final streamUrl = Uri.https(Uri.parse(host).host, "/v1/tracks/$id/stream", {
+      "app_name": appName,
+    }).toString();
+
+    // external (Audius web)
+    final permalink = safeString(json["permalink"]);
+    final externalUrl = permalink.isNotEmpty
+        ? "https://audius.co$permalink"
         : "";
-    final previewUrl = safeString(json['preview_url']);
-    final externalUrl = safeString((json['external_urls'] as Map?)?['spotify']);
 
     return Track(
       id: id,
-      name: name,
-      artist: artist,
+      name: title.isEmpty ? "Unknown" : title,
+      artist: artist.isEmpty ? "Unknown" : artist,
       album: album,
       imageUrl: imageUrl,
-      previewUrl: previewUrl,
+      streamUrl: streamUrl,
       externalUrl: externalUrl,
+      source: "audius",
     );
   }
 
@@ -74,8 +95,9 @@ class Track {
     "artist": artist,
     "album": album,
     "imageUrl": imageUrl,
-    "previewUrl": previewUrl,
+    "streamUrl": streamUrl,
     "externalUrl": externalUrl,
+    "source": source,
   };
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -84,7 +106,8 @@ class Track {
     artist: safeString(json["artist"]),
     album: safeString(json["album"]),
     imageUrl: safeString(json["imageUrl"]),
-    previewUrl: safeString(json["previewUrl"]),
+    streamUrl: safeString(json["streamUrl"]),
     externalUrl: safeString(json["externalUrl"]),
+    source: safeString(json["source"], fallback: "audius"),
   );
 }

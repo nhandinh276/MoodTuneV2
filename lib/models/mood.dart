@@ -9,7 +9,6 @@ enum MoodType {
   focus,
   energetic,
   romantic,
-  nostalgic,
   bored,
 }
 
@@ -74,12 +73,6 @@ class Mood {
       label: "Lãng mạn",
       icon: Icons.favorite,
       color: Color(0xFFE91E63),
-    ),
-    Mood(
-      type: MoodType.nostalgic,
-      label: "Hoài niệm",
-      icon: Icons.auto_stories,
-      color: Color(0xFF795548),
     ),
     Mood(
       type: MoodType.bored,

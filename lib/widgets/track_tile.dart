@@ -11,7 +11,7 @@ class TrackTile extends StatelessWidget {
 
   const TrackTile({super.key, required this.track, this.onTap, this.onSave});
 
-  bool get hasPreview => track.previewUrl.trim().isNotEmpty;
+  bool get canPlay => track.streamUrl.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -53,16 +53,11 @@ class TrackTile extends StatelessWidget {
                   Row(
                     children: [
                       MoodBadge(
-                        ok: hasPreview,
-                        text: hasPreview ? "Preview 30s" : "Không preview",
+                        ok: canPlay,
+                        text: canPlay ? "Phát full" : "Không phát được",
                       ),
                       const SizedBox(width: 8),
-                      if (!hasPreview)
-                        Icon(
-                          Icons.open_in_new,
-                          size: 16,
-                          color: cs.onSurfaceVariant,
-                        ),
+                      MoodBadge(ok: true, text: track.source),
                     ],
                   ),
                 ],

@@ -19,26 +19,16 @@ class RecommendationsScreen extends StatefulWidget {
 }
 
 class _RecommendationsScreenState extends State<RecommendationsScreen> {
-  bool onlyPreview = true;
   bool _navBusy = false;
-
-  bool _hasPreview(Track t) => t.previewUrl.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-
     final allTracks = app.recommendations;
-    final tracks = onlyPreview
-        ? allTracks.where(_hasPreview).toList()
-        : allTracks;
 
     Track? todayPick;
     if (widget.openTodayPick) {
       todayPick = app.getTodayPick();
-      if (onlyPreview && todayPick != null && !_hasPreview(todayPick)) {
-        todayPick = null;
-      }
     }
 
     return Scaffold(
@@ -50,8 +40,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
             HeroHeader(
               title: "Danh sách phù hợp mood của bạn",
               subtitle:
-                  app.lastAnalysis?.activity ??
-                  "Chọn 1 bài và thả lỏng 30s nhé.",
+                  app.lastAnalysis?.activity ?? "Chọn 1 bài và thả lỏng nhé.",
               trailing: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -73,37 +62,12 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                   children: [
                     const Icon(Icons.headphones, size: 18),
                     const SizedBox(width: 6),
-                    Text("Glass", style: UIStyles.subtle(context)),
+                    Text("Audius", style: UIStyles.subtle(context)),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 12),
-
-            GlassCard(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.filter_alt),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      "Chỉ hiện bài nghe được (preview 30s)",
-                      style: UIStyles.body(
-                        context,
-                      ).copyWith(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  Switch(
-                    value: onlyPreview,
-                    onChanged: (v) => setState(() => onlyPreview = v),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
             if (todayPick != null) ...[
               GlassCard(
                 padding: const EdgeInsets.all(12),
@@ -125,9 +89,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               ),
               const SizedBox(height: 12),
             ],
-
-            Expanded(child: _buildList(context, allTracks, tracks)),
-
+            Expanded(child: _buildList(context, allTracks)),
             if (app.error != null) ...[
               const SizedBox(height: 10),
               GlassCard(
@@ -151,11 +113,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     );
   }
 
-  Widget _buildList(
-    BuildContext context,
-    List<Track> allTracks,
-    List<Track> filteredTracks,
-  ) {
+  Widget _buildList(BuildContext context, List<Track> allTracks) {
     if (allTracks.isEmpty) {
       return Center(
         child: GlassCard(
@@ -168,23 +126,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       );
     }
 
-    if (filteredTracks.isEmpty) {
-      return Center(
-        child: GlassCard(
-          child: Text(
-            "Không có bài nào có preview (30s).\nHãy tắt bộ lọc để xem đầy đủ và bấm “Mở Spotify”.",
-            style: UIStyles.subtle(context),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
-
     return ListView.separated(
-      itemCount: filteredTracks.length,
+      itemCount: allTracks.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (_, i) {
-        final t = filteredTracks[i];
+        final t = allTracks[i];
         return TrackTile(
           track: t,
           onTap: () => _openTrack(context, t),
@@ -198,36 +144,12 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     if (_navBusy) return;
     _navBusy = true;
 
-    final snack = ScaffoldMessenger.of(context);
-
     try {
-      Track target = t;
-
-      if (target.previewUrl.trim().isEmpty) {
-        snack.showSnackBar(
-          const SnackBar(content: Text("Đang tìm bản có preview...")),
-        );
-        final alt = await context
-            .read<AppState>()
-            .spotify
-            .findPlayableAlternative(target);
-        if (!context.mounted) return;
-
-        if (alt != null) {
-          snack.hideCurrentSnackBar();
-          target = alt;
-        } else {
-          snack.showSnackBar(
-            const SnackBar(content: Text("Không tìm thấy bản có preview 😥")),
-          );
-        }
-      }
-
       await Future.delayed(Duration.zero);
       if (!context.mounted) return;
 
       await NavGuard.push(
-        MaterialPageRoute(builder: (_) => PlayerScreen(track: target)),
+        MaterialPageRoute(builder: (_) => PlayerScreen(track: t)),
       );
     } finally {
       _navBusy = false;
@@ -282,8 +204,9 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                             track: track,
                             note: noteController.text.trim(),
                           );
-                          if (sheetContext.mounted)
+                          if (sheetContext.mounted) {
                             Navigator.of(sheetContext).pop();
+                          }
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text("Đã lưu ✅")),
